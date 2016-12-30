@@ -13,7 +13,7 @@
 	/* Struktura za liniju */
 	typedef struct 
 	{
-		float x_curr,y_curr;
+		float x_curr, y_curr;
 	}line;
 
 	/* Struktura za liniju sa objektima */
@@ -23,6 +23,5 @@
 		int combination;
 		int destroyed;
 	}line_object;
-
 
 #endif

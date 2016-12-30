@@ -23,10 +23,23 @@ static void on_display(void);
 static void on_timer(int value);
 static int generate_combination(void);
 
-static float v_x, v_y;	/* Komponente vektora brzine kretanja objekta */
+/* Komponente vektora brzine kretanja objekta */
+static float v_x, v_y;
 
 /* Dimenzije prozora */
 static int window_width, window_height;
+
+/* Promenljiva za pamcenje kombinacije tastera */
+int key_combination;
+
+/* Ugao rotacije oko y-ose */
+double rotate_angle = 15;
+
+/* od 0.2 do 1.0 */
+double rotate_coeff = 0.2;
+
+/* Promenljiva koja ima vrednost 10, 20, 30... */
+int score_checkpoint = 10;
 
 extern float rect_y;
 extern float block_x;
@@ -38,12 +51,8 @@ extern float angle;
 extern int random_interval;
 extern int indeks;
 extern int animaton_ongoing;
-
 extern int old_time;
 extern int current_score;
-
-int key_combination;
-
 
 int main(int argc,char* argv[])
 {
@@ -63,29 +72,13 @@ int main(int argc,char* argv[])
 	glutKeyboardUpFunc(keyboard_up);
 
 	v_y = -rect_y/2 - 0.02; 
-	animaton_ongoing=0;
+	animaton_ongoing = 0;
 	srand(time(NULL));
 	old_time = glutGet(GLUT_ELAPSED_TIME);
 
 	/* OpenGL inicijalizacija */
 	glClearColor(0, 0, 0, 0);
 	glEnable(GL_DEPTH_TEST);
-
-	/* Postavljaju se pocetne vrednosti, 
-	 	da se ne iscrtava na traci pre pokretanja animacije */
-	int k;	
-	for(k=0; k<NUMBER_OF_OBJECTS; k++)
-	{
-		lines[k].x_curr = 0.0;
-		lines[k].y_curr = -3.0;
-
-		line_objects[k].x_q = -3.0;
-		line_objects[k].x_w = -3.0;
-		line_objects[k].x_e = -3.0;
-		line_objects[k].x_r = -3.0;
-		line_objects[k].x_t = -3.0;
-		//line_objects[k].y_curr = -3.0;
-	}
 
 	/* Ulazi se u glavnu petlju */
 	glutMainLoop();
@@ -96,6 +89,7 @@ int main(int argc,char* argv[])
 static void keyboard_up(unsigned char key,int x, int y)
 {
 	/* Resetuju se pritisnuti tasteri */
+
 	/* Dovoljno je samo celu kombinaciju postaviti na 0 
 	   posto je kombinacija bitova
 	*/
@@ -112,19 +106,21 @@ static void on_keyboard(unsigned char key, int x, int y)
 	}	
 
 	if(key == 'g')
-	/* Pokrece se animacija */
-	if(!animaton_ongoing)
 	{
-		glutTimerFunc(TIME_INTERVAL, on_timer, SUMMON_LINE_TIMER);
-		glutTimerFunc(REFRESH_INTERVAL, on_timer, REFRESH_TIMER);
+		/* Pokrece se animacija */
+		if(!animaton_ongoing)
+		{
+			glutTimerFunc(TIME_INTERVAL, on_timer, SUMMON_LINE_TIMER);
+			glutTimerFunc(REFRESH_INTERVAL, on_timer, REFRESH_TIMER);
 
-		glutTimerFunc(2000, on_timer, SUMMON_LINE_OBJECTS_TIMER);
-		glutTimerFunc(REFRESH_INTERVAL, on_timer, OBJECTS_REFRESH_TIMER);
+			glutTimerFunc(2000, on_timer, SUMMON_LINE_OBJECTS_TIMER);
+			glutTimerFunc(REFRESH_INTERVAL, on_timer, OBJECTS_REFRESH_TIMER);
 
-		/* Pamtimo broj ms proteklih od pokretanja programa */
-		old_time = glutGet(GLUT_ELAPSED_TIME);
+			/* Pamtimo broj ms proteklih od pokretanja programa */
+			old_time = glutGet(GLUT_ELAPSED_TIME);
 
-		animaton_ongoing = 1;
+			animaton_ongoing = 1;
+		}
 	}
 
 	int i;
@@ -145,7 +141,7 @@ static void on_keyboard(unsigned char key, int x, int y)
 			if(key == 't')
 				key_combination |= 1;
 
-			/* Pogodjena odgovarajuca kombinacija */
+			/* Pogodjena je odgovarajuca kombinacija */
 			if(key_combination != 0 && 
 				(key_combination == line_objects[i].combination))
 			{
@@ -154,9 +150,23 @@ static void on_keyboard(unsigned char key, int x, int y)
 				 */
 				current_score += 1;
 				line_objects[i].destroyed = 1;
+					
+				/* Brzina rotacije se poveca kada rezultat bude 10, 20, 30... */
+				if(rotate_coeff<1.0 && current_score == score_checkpoint)
+				{
+					if(rotate_coeff>0)
+					{
+						rotate_coeff += 0.1;		
+						score_checkpoint += 10;	
+					}
+					else if(rotate_coeff <= 0)
+					{
+						rotate_coeff -= 0.1;
+						score_checkpoint += 10;
+					}
+				}
 			}
 		}
-
 	}
 }
 
@@ -219,9 +229,9 @@ static void on_timer(int value)
 		glutPostRedisplay();
 
 		if(animaton_ongoing)
-			{
-				glutTimerFunc(REFRESH_INTERVAL, on_timer, REFRESH_TIMER);
-			}	
+		{
+			glutTimerFunc(REFRESH_INTERVAL, on_timer, REFRESH_TIMER);
+		}	
 	}
 	if(value == SUMMON_LINE_OBJECTS_TIMER)
 	{		
@@ -239,7 +249,7 @@ static void on_timer(int value)
 		line_objects[next].destroyed = 0;
 
 
-		/* Generisana kombinacija se dodeljuje trenutnoj liniji sa objektima */
+		/* Generise se kombinacija i dodeljuje trenutnoj liniji sa objektima */
 		line_objects[next].combination = generate_combination();
 		
 		next = (++next == NUMBER_OF_OBJECTS) ? 0 : next;
@@ -276,9 +286,20 @@ static void on_reshape(int width, int height)
 	window_height = height;
 }
 
-
 static void on_display(void)
 {
+	/* Pozicija svetla */
+	GLfloat light_position[] = { 1, 1, 1, 0 };
+
+    /* Ambijentalna boja svetla */
+	GLfloat light_ambient[] = { 0.1, 0.1, 0.1, 1 };
+
+    /* Difuzna boja svetla */
+	GLfloat light_diffuse[] = { 0.7, 0.7, 0.7, 1 };
+
+    /* Spekularna boja svetla */
+	GLfloat light_specular[] = { 0.9, 0.9, 0.9, 1 };
+
 	/* Postavlja se boja na odgovarajucu */
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -295,23 +316,34 @@ static void on_display(void)
 	glLoadIdentity();
 	gluLookAt(0, -2, 3, 0, 0.6, 0, 0, 1.0, 0);
 
-	/* Crtamo osnovnu traku */
-	glBegin(GL_QUADS);
-	 	glColor3f(0.3, 1.0, 1.0);     
-	 	glVertex3f(-1.2, -1.0, 0);
-	 	glVertex3f(-1.2, 4.0, 0);
-	 	glVertex3f(1.2, 4.0, 0);
-	 	glVertex3f(1.2, -1.0, 0);
-	glEnd();
+	/* Ukljucuje se osvetljenje i podesavaju parametri svetla */
+	glEnable(GL_LIGHTING);
+	glEnable(GL_LIGHT0);
+	glLightfv(GL_LIGHT0, GL_POSITION, light_position);
+	glLightfv(GL_LIGHT0, GL_AMBIENT, light_ambient);
+	glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse);
+	glLightfv(GL_LIGHT0, GL_SPECULAR, light_specular);
+	
+	/* Crta se rezultat */
+	draw_score();
 
+	/* Rotira se sve na sceni */
+	if((int)rotate_angle == 20 || (int)rotate_angle == -20)
+	{
+		rotate_coeff *= -1;
+	}
 
+	rotate_angle = rotate_angle + rotate_coeff;
+	glRotatef(rotate_angle, 0, 1, 0);
+
+	/* Crtaju se validne pozicije za unistavanje objekata */
 	draw_valid_destroy_segment();
 
 	/* Crtaju se linije */
 	int i;
 	for(i=0; i<NUMBER_OF_OBJECTS; i++)
 	{
-    	draw_line(i);
+		draw_line(i);
 	}
 
 	/* Crtaju se linije sa objektima */
@@ -327,10 +359,16 @@ static void on_display(void)
 		}
 	}
 
-	/* Crta se rezultat */
-	draw_score();
-    
-    /* Postavlja se nova slika na prozor */
+	/* Crta se osnovna traka */
+	glBegin(GL_QUADS);
+	 	glColor3f(0.3, 1.0, 1.0);     
+	 	glVertex3f(-1.2, -1.0, 0);
+	 	glVertex3f(-1.2, 4.0, 0);
+	 	glVertex3f(1.2, 4.0, 0);
+	 	glVertex3f(1.2, -1.0, 0);	
+	glEnd();
+
+	/* Postavlja se nova slika na prozor */
 	glutSwapBuffers();
 }
 
