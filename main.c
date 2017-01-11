@@ -104,6 +104,11 @@ static void on_keyboard(unsigned char key, int x, int y)
 	{
 		exit(0);
 	}	
+	if(key == 's')
+	{
+		animaton_ongoing = 0;
+
+	}
 
 	if(key == 'g')
 	{
@@ -314,7 +319,7 @@ static void on_display(void)
 	/* Postavlja se vidna tacka */
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
-	gluLookAt(0, -2, 3, 0, 0.6, 0, 0, 1.0, 0);
+	gluLookAt(0, -2, 3, 0, 0.6, 0, 0, 1.0, 0);	/////0 -2 3
 
 	/* Ukljucuje se osvetljenje i podesavaju parametri svetla */
 	glEnable(GL_LIGHTING);
